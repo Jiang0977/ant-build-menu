@@ -60,7 +60,7 @@ ant -version
 
 1. **克隆或下载源码**
    ```cmd
-   git clone https://github.com/your-username/ant-build-menu.git
+   git clonehttps://gitee.com/xskywalker/ant-build-menu.git
    cd ant-build-menu
    ```
 
@@ -79,7 +79,7 @@ ant -version
 
 1. **克隆源码并安装为开发包**
    ```cmd
-   git clone https://github.com/your-username/ant-build-menu.git
+   git clonehttps://gitee.com/xskywalker/ant-build-menu.git
    cd ant-build-menu
    pip install -e .[dev]
    ```
