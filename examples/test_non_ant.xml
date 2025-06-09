@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <item id="1">
+        <name>测试项目</name>
+        <description>这是一个普通的XML文件，不是Ant构建文件</description>
+    </item>
+    <item id="2">
+        <name>另一个项目</name>
+        <description>用于测试智能检测功能</description>
+    </item>
+</root> 

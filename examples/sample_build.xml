@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="AntBuildMenuExample" default="hello" basedir=".">
+    
+    <!-- 项目描述 -->
+    <description>
+        Ant Build Menu 示例项目
+        演示如何使用右键菜单运行Ant构建任务
+    </description>
+    
+    <!-- 属性定义 -->
+    <property name="src.dir" value="src"/>
+    <property name="build.dir" value="build"/>
+    <property name="dist.dir" value="dist"/>
+    <property name="lib.dir" value="lib"/>
+    
+    <!-- 初始化目标 -->
+    <target name="init" description="初始化构建环境">
+        <echo message="初始化构建环境..."/>
+        <tstamp/>
+        <mkdir dir="${build.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+        <echo message="构建目录已创建: ${build.dir}"/>
+        <echo message="分发目录已创建: ${dist.dir}"/>
+    </target>
+    
+    <!-- 清理目标 -->
+    <target name="clean" description="清理构建输出">
+        <echo message="清理构建输出..."/>
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+        <echo message="清理完成"/>
+    </target>
+    
+    <!-- 编译目标 -->
+    <target name="compile" depends="init" description="编译源代码">
+        <echo message="编译源代码..."/>
+        <echo message="源代码目录: ${src.dir}"/>
+        <echo message="输出目录: ${build.dir}"/>
+        
+        <!-- 模拟编译过程 -->
+        <echo message="正在编译 Main.java..."/>
+        <sleep seconds="1"/>
+        <echo message="正在编译 Utils.java..."/>
+        <sleep seconds="1"/>
+        <echo message="编译完成"/>
+        
+        <!-- 创建模拟的编译输出 -->
+        <echo file="${build.dir}/Main.class" message="// 模拟编译输出 - Main.class"/>
+        <echo file="${build.dir}/Utils.class" message="// 模拟编译输出 - Utils.class"/>
+    </target>
+    
+    <!-- 测试目标 -->
+    <target name="test" depends="compile" description="运行测试">
+        <echo message="运行测试..."/>
+        <echo message="正在运行单元测试..."/>
+        <sleep seconds="2"/>
+        <echo message="测试结果: 10 个测试通过, 0 个失败"/>
+        <echo message="测试覆盖率: 85%"/>
+        <echo message="测试完成"/>
+    </target>
+    
+    <!-- 打包目标 -->
+    <target name="package" depends="test" description="打包应用程序">
+        <echo message="打包应用程序..."/>
+        
+        <!-- 创建JAR文件 -->
+        <echo message="创建JAR文件..."/>
+        <jar destfile="${dist.dir}/example-app.jar" basedir="${build.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="Main"/>
+                <attribute name="Implementation-Title" value="Ant Build Menu Example"/>
+                <attribute name="Implementation-Version" value="1.0"/>
+                <attribute name="Built-By" value="${user.name}"/>
+                <attribute name="Built-Date" value="${TODAY}"/>
+            </manifest>
+        </jar>
+        
+        <echo message="JAR文件已创建: ${dist.dir}/example-app.jar"/>
+        <echo message="打包完成"/>
+    </target>
+    
+    <!-- 文档生成目标 -->
+    <target name="docs" description="生成项目文档">
+        <echo message="生成项目文档..."/>
+        <mkdir dir="${dist.dir}/docs"/>
+        
+        <!-- 模拟文档生成 -->
+        <echo file="${dist.dir}/docs/README.html" append="false">
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;项目文档&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Ant Build Menu 示例项目&lt;/h1&gt;
+&lt;p&gt;这是一个演示项目，展示如何使用Ant构建脚本。&lt;/p&gt;
+&lt;p&gt;生成时间: ${TODAY}&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+        </echo>
+        
+        <echo message="文档已生成: ${dist.dir}/docs/"/>
+        <echo message="文档生成完成"/>
+    </target>
+    
+    <!-- 部署目标 -->
+    <target name="deploy" depends="package" description="部署应用程序">
+        <echo message="部署应用程序..."/>
+        <echo message="检查部署环境..."/>
+        <sleep seconds="1"/>
+        <echo message="复制文件到部署目录..."/>
+        <sleep seconds="1"/>
+        <echo message="配置应用程序..."/>
+        <sleep seconds="1"/>
+        <echo message="部署完成"/>
+        <echo message="应用程序已成功部署"/>
+    </target>
+    
+    <!-- 完整构建目标 -->
+    <target name="build" depends="clean,compile,test,package,docs" description="完整构建流程">
+        <echo message="完整构建流程已完成"/>
+        <echo message="构建摘要:"/>
+        <echo message="- 源代码已编译"/>
+        <echo message="- 测试已通过"/>
+        <echo message="- 应用程序已打包"/>
+        <echo message="- 文档已生成"/>
+    </target>
+    
+    <!-- 默认目标 - 简单的Hello World -->
+    <target name="hello" description="显示欢迎消息">
+        <echo message=""/>
+        <echo message="========================================="/>
+        <echo message="  欢迎使用 Ant Build Menu 示例项目!"/>
+        <echo message="========================================="/>
+        <echo message=""/>
+        <echo message="可用的构建目标:"/>
+        <echo message="  hello   - 显示此欢迎消息 (默认)"/>
+        <echo message="  init    - 初始化构建环境"/>
+        <echo message="  clean   - 清理构建输出"/>
+        <echo message="  compile - 编译源代码"/>
+        <echo message="  test    - 运行测试"/>
+        <echo message="  package - 打包应用程序"/>
+        <echo message="  docs    - 生成项目文档"/>
+        <echo message="  deploy  - 部署应用程序"/>
+        <echo message="  build   - 完整构建流程"/>
+        <echo message=""/>
+        <echo message="使用方法:"/>
+        <echo message="1. 右键点击此 build.xml 文件"/>
+        <echo message="2. 选择 '运行 Ant 构建'"/>
+        <echo message="3. 在弹出的界面中选择构建目标"/>
+        <echo message="4. 点击 '开始构建' 按钮"/>
+        <echo message=""/>
+        <echo message="构建环境信息:"/>
+        <echo message="- Java版本: ${java.version}"/>
+        <echo message="- Java Home: ${java.home}"/>
+        <echo message="- 操作系统: ${os.name} ${os.version}"/>
+        <echo message="- 用户名: ${user.name}"/>
+        <echo message="- 工作目录: ${basedir}"/>
+        <echo message=""/>
+        <echo message="Happy Building! 🚀"/>
+        <echo message=""/>
+    </target>
+    
+    <!-- 帮助目标 -->
+    <target name="help" description="显示帮助信息">
+        <echo message="Ant Build Menu 示例项目帮助"/>
+        <echo message=""/>
+        <echo message="这个build.xml文件演示了Ant Build Menu的各种功能:"/>
+        <echo message=""/>
+        <echo message="快速开始:"/>
+        <echo message="1. 确保已安装Java和Apache Ant"/>
+        <echo message="2. 安装Ant Build Menu工具"/>
+        <echo message="3. 右键点击此文件，选择'运行 Ant 构建'"/>
+        <echo message=""/>
+        <echo message="目标说明:"/>
+        <echo message="- hello: 显示欢迎信息和环境信息"/>
+        <echo message="- init: 创建构建所需的目录结构"/>
+        <echo message="- clean: 删除构建生成的文件和目录"/>
+        <echo message="- compile: 模拟编译Java源代码"/>
+        <echo message="- test: 模拟运行单元测试"/>
+        <echo message="- package: 创建JAR文件"/>
+        <echo message="- docs: 生成HTML格式的项目文档"/>
+        <echo message="- deploy: 模拟部署流程"/>
+        <echo message="- build: 执行完整的构建流程"/>
+        <echo message=""/>
+    </target>
+    
+</project> 
