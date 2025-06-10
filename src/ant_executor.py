@@ -150,15 +150,28 @@ class AntExecutor:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
+                text=False,  # 使用字节模式
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             
             # 等待命令完成或超时
             try:
-                stdout, stderr = process.communicate(timeout=self.timeout)
+                stdout_bytes, stderr_bytes = process.communicate(timeout=self.timeout)
                 execution_time = time.time() - start_time
+                
+                # 智能解码输出
+                def smart_decode(byte_data):
+                    if not byte_data:
+                        return ""
+                    for encoding in ['utf-8', 'gbk', 'cp936', 'latin1']:
+                        try:
+                            return byte_data.decode(encoding)
+                        except UnicodeDecodeError:
+                            continue
+                    return byte_data.decode('utf-8', errors='replace')
+                
+                stdout = smart_decode(stdout_bytes)
+                stderr = smart_decode(stderr_bytes)
                 
                 if process.returncode == 0:
                     print(f"✅ Ant构建成功 (耗时: {execution_time:.2f}秒)")
@@ -223,10 +236,8 @@ class AntExecutor:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
+                text=False,  # 使用字节模式，稍后手动处理编码
                 bufsize=1,  # 行缓冲
-                universal_newlines=True,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             
@@ -238,11 +249,32 @@ class AntExecutor:
             stdout_lines = []
             stderr_lines = []
             
+            def decode_bytes(byte_data):
+                """智能解码字节数据"""
+                if not byte_data:
+                    return ""
+                
+                # 尝试多种编码格式
+                encodings = ['utf-8', 'gbk', 'cp936', 'latin1', 'ascii']
+                
+                for encoding in encodings:
+                    try:
+                        return byte_data.decode(encoding)
+                    except (UnicodeDecodeError, UnicodeError):
+                        continue
+                
+                # 如果所有编码都失败，使用错误处理
+                try:
+                    return byte_data.decode('utf-8', errors='replace')
+                except:
+                    return byte_data.decode('latin1', errors='replace')
+            
             def read_stdout():
                 """读取标准输出"""
                 try:
-                    for line in iter(process.stdout.readline, ''):
-                        if line:
+                    for line_bytes in iter(process.stdout.readline, b''):
+                        if line_bytes:
+                            line = decode_bytes(line_bytes)
                             stdout_lines.append(line)
                             if output_callback:
                                 output_callback(line, False)
@@ -254,8 +286,9 @@ class AntExecutor:
             def read_stderr():
                 """读取错误输出"""
                 try:
-                    for line in iter(process.stderr.readline, ''):
-                        if line:
+                    for line_bytes in iter(process.stderr.readline, b''):
+                        if line_bytes:
+                            line = decode_bytes(line_bytes)
                             stderr_lines.append(line)
                             if output_callback:
                                 output_callback(line, True)
@@ -329,18 +362,32 @@ class AntExecutor:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                encoding='utf-8',
+                text=False,  # 使用字节模式
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             
-            stdout, stderr = process.communicate(timeout=10)
+            stdout_bytes, stderr_bytes = process.communicate(timeout=10)
             
-            if process.returncode == 0 and stdout:
-                # 提取版本信息
-                for line in stdout.split('\n'):
-                    if 'Apache Ant' in line:
-                        return line.strip()
+            if process.returncode == 0 and stdout_bytes:
+                # 智能解码输出
+                try:
+                    # 尝试多种编码
+                    for encoding in ['utf-8', 'gbk', 'cp936', 'latin1']:
+                        try:
+                            stdout = stdout_bytes.decode(encoding)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        # 如果所有编码都失败，使用错误处理
+                        stdout = stdout_bytes.decode('utf-8', errors='replace')
+                    
+                    # 提取版本信息
+                    for line in stdout.split('\n'):
+                        if 'Apache Ant' in line:
+                            return line.strip()
+                except Exception:
+                    return None
             
             return None
             
