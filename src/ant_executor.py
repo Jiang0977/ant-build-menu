@@ -177,6 +177,137 @@ class AntExecutor:
             print(f"❌ {error_msg}")
             return False, "", error_msg
     
+    def execute_ant_command_realtime(self, build_file: str, target: str = "", 
+                                     output_callback=None, process_callback=None) -> Tuple[bool, float]:
+        """
+        执行Ant构建命令（支持实时输出）
+        
+        Args:
+            build_file: build.xml文件路径
+            target: 构建目标，为空则使用默认目标
+            output_callback: 输出回调函数，接收(line, is_error)参数
+            process_callback: 进程回调函数，接收process对象，用于取消操作
+            
+        Returns:
+            Tuple[bool, float]: (是否成功, 执行时间)
+        """
+        # 验证环境
+        valid, msg = self.validate_environment()
+        if not valid:
+            if output_callback:
+                output_callback(f"环境验证失败: {msg}\n", True)
+            return False, 0.0
+        
+        try:
+            # 构建Ant命令
+            ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
+            cmd = [str(ant_bat), "-f", build_file]
+            
+            if target:
+                cmd.append(target)
+            
+            # 设置环境变量
+            env = os.environ.copy()
+            env['JAVA_HOME'] = self.java_home
+            env['ANT_HOME'] = self.ant_home
+            
+            if output_callback:
+                output_callback(f"🚀 执行Ant命令: {' '.join(cmd)}\n", False)
+                output_callback(f"📂 工作目录: {Path(build_file).parent}\n", False)
+            
+            # 执行命令（隐藏控制台窗口）
+            start_time = time.time()
+            process = subprocess.Popen(
+                cmd,
+                cwd=Path(build_file).parent,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding='utf-8',
+                bufsize=1,  # 行缓冲
+                universal_newlines=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            
+            # 将进程对象传递给回调
+            if process_callback:
+                process_callback(process)
+            
+            # 创建线程来读取标准输出和错误输出
+            stdout_lines = []
+            stderr_lines = []
+            
+            def read_stdout():
+                """读取标准输出"""
+                try:
+                    for line in iter(process.stdout.readline, ''):
+                        if line:
+                            stdout_lines.append(line)
+                            if output_callback:
+                                output_callback(line, False)
+                    process.stdout.close()
+                except Exception as e:
+                    if output_callback:
+                        output_callback(f"读取输出时发生错误: {e}\n", True)
+            
+            def read_stderr():
+                """读取错误输出"""
+                try:
+                    for line in iter(process.stderr.readline, ''):
+                        if line:
+                            stderr_lines.append(line)
+                            if output_callback:
+                                output_callback(line, True)
+                    process.stderr.close()
+                except Exception as e:
+                    if output_callback:
+                        output_callback(f"读取错误输出时发生错误: {e}\n", True)
+            
+            # 启动读取线程
+            stdout_thread = threading.Thread(target=read_stdout)
+            stderr_thread = threading.Thread(target=read_stderr)
+            stdout_thread.daemon = True
+            stderr_thread.daemon = True
+            
+            stdout_thread.start()
+            stderr_thread.start()
+            
+            # 等待进程完成或超时
+            try:
+                process.wait(timeout=self.timeout)
+                execution_time = time.time() - start_time
+                
+                # 等待读取线程完成
+                stdout_thread.join(timeout=5)
+                stderr_thread.join(timeout=5)
+                
+                success = process.returncode == 0
+                
+                if output_callback:
+                    if success:
+                        output_callback(f"\n✅ Ant构建成功 (耗时: {execution_time:.2f}秒)\n", False)
+                    else:
+                        output_callback(f"\n❌ Ant构建失败 (返回码: {process.returncode})\n", True)
+                
+                print(f"{'✅' if success else '❌'} Ant构建{'成功' if success else '失败'} (耗时: {execution_time:.2f}秒)")
+                return success, execution_time
+                    
+            except subprocess.TimeoutExpired:
+                process.kill()
+                execution_time = time.time() - start_time
+                if output_callback:
+                    output_callback(f"\n⏰ Ant构建超时 (超过{self.timeout}秒)\n", True)
+                print(f"⏰ Ant构建超时 (超过{self.timeout}秒)")
+                return False, execution_time
+            
+        except Exception as e:
+            error_msg = f"执行Ant命令时发生错误: {e}"
+            if output_callback:
+                output_callback(f"❌ {error_msg}\n", True)
+            print(f"❌ {error_msg}")
+            return False, 0.0
+    
     def get_ant_version(self) -> Optional[str]:
         """
         获取Ant版本信息
