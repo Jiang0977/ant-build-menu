@@ -154,6 +154,8 @@ python setup.py sdist bdist_wheel    # 生成分发包
 pyinstaller main.spec         # 生成exe文件
 ```
 
+![输入图片说明](examples/image.png)
+
 ## 风险评估
 
 - **权限问题**: 修改注册表需要管理员权限
