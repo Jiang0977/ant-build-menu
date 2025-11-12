@@ -51,10 +51,15 @@ class AntExecutor:
         # 检查Ant环境
         if not self.ant_home:
             return False, "未找到Ant安装路径，请设置ANT_HOME环境变量"
-        
+
+        # 优先使用 Ant Launcher JAR（避免 bat 编码丢失）
+        ant_launcher = Path(self.ant_home) / "lib" / "ant-launcher.jar"
         ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
-        if not ant_bat.exists():
-            return False, f"Ant批处理文件不存在: {ant_bat}"
+        if not ant_launcher.exists() and not ant_bat.exists():
+            return False, (
+                f"Ant启动器不存在: {ant_launcher} 且 Ant批处理不存在: {ant_bat}\n"
+                "请检查 ANT_HOME 是否正确安装。"
+            )
         
         return True, "Ant环境验证通过"
     
@@ -127,9 +132,21 @@ class AntExecutor:
             return False, "", msg
         
         try:
-            # 构建Ant命令
-            ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
-            cmd = [str(ant_bat), "-f", build_file]
+            # 构建Ant命令（优先使用 Java 启动器，避免 bat 编码问题）
+            ant_launcher = Path(self.ant_home) / "lib" / "ant-launcher.jar"
+            java_exe = Path(self.java_home) / "bin" / "java.exe"
+            if ant_launcher.exists():
+                # 使用 Java 直接运行 Ant Launcher（CreateProcessW 传递 Unicode，避免乱码）
+                cmd = [
+                    str(java_exe),
+                    "-jar",
+                    str(ant_launcher),
+                    "-f",
+                    build_file,
+                ]
+            else:
+                ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
+                cmd = [str(ant_bat), "-f", build_file]
             
             if target:
                 cmd.append(target)
@@ -138,6 +155,16 @@ class AntExecutor:
             env = os.environ.copy()
             env['JAVA_HOME'] = self.java_home
             env['ANT_HOME'] = self.ant_home
+            # 清理可能导致Windows中文路径失效的JVM编码强制参数
+            for opt_var in ['JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS']:
+                if opt_var in env and env[opt_var]:
+                    tokens = env[opt_var].split()
+                    filtered = [t for t in tokens if not t.startswith('-Dsun.jnu.encoding=')]
+                    # 可选：同时移除 -Dfile.encoding 以完全回归系统默认
+                    # filtered = [t for t in filtered if not t.startswith('-Dfile.encoding=')]
+                    env[opt_var] = ' '.join(filtered)
+                    if not env[opt_var].strip():
+                        env.pop(opt_var, None)
             
             print(f"🚀 执行Ant命令: {' '.join(cmd)}")
             print(f"📂 工作目录: {Path(build_file).parent}")
@@ -212,9 +239,20 @@ class AntExecutor:
             return False, 0.0
         
         try:
-            # 构建Ant命令
-            ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
-            cmd = [str(ant_bat), "-f", build_file]
+            # 构建Ant命令（优先使用 Java 启动器，避免 bat 编码问题）
+            ant_launcher = Path(self.ant_home) / "lib" / "ant-launcher.jar"
+            java_exe = Path(self.java_home) / "bin" / "java.exe"
+            if ant_launcher.exists():
+                cmd = [
+                    str(java_exe),
+                    "-jar",
+                    str(ant_launcher),
+                    "-f",
+                    build_file,
+                ]
+            else:
+                ant_bat = Path(self.ant_home) / "bin" / "ant.bat"
+                cmd = [str(ant_bat), "-f", build_file]
             
             if target:
                 cmd.append(target)
@@ -223,6 +261,13 @@ class AntExecutor:
             env = os.environ.copy()
             env['JAVA_HOME'] = self.java_home
             env['ANT_HOME'] = self.ant_home
+            for opt_var in ['JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS']:
+                if opt_var in env and env[opt_var]:
+                    tokens = env[opt_var].split()
+                    filtered = [t for t in tokens if not t.startswith('-Dsun.jnu.encoding=')]
+                    env[opt_var] = ' '.join(filtered)
+                    if not env[opt_var].strip():
+                        env.pop(opt_var, None)
             
             if output_callback:
                 output_callback(f"🚀 执行Ant命令: {' '.join(cmd)}\n", False)
