@@ -32,7 +32,7 @@ except FileNotFoundError:
     ]
 
 # 项目版本
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 setup(
     name="ant-build-menu",

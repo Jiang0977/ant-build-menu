@@ -158,7 +158,7 @@ pyinstaller main.spec         # 生成exe文件
 ```cmd
 # 使用 PowerShell 运行发布脚本
 cd scripts
-.\publish_gitee_release.ps1 -Version "v1.0.3" -Token "your_gitee_token"
+.\publish_gitee_release.ps1 -Version "v1.0.4" -Token "your_gitee_token"
 ```
 
 ![输入图片说明](examples/image.png)
