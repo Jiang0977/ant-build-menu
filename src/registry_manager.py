@@ -28,22 +28,38 @@ class RegistryManager:
         self.config = get_config()
         self.menu_key = self.config.get('menu_config.registry_key', 'AntBuildMenu')
         self.menu_text = self.config.get_menu_text()
+        self.base_dir = (
+            Path(sys.executable).parent
+            if getattr(sys, 'frozen', False)
+            else Path(__file__).parent.parent
+        )
         
         # 注册表路径常量
         self.XML_FILE_KEY = r"XML\shell"  # XML文件类型的正确路径
         self.BUILD_XML_KEY = r"*\shell"   # 通用文件扩展
+    
+    def _get_launch_command(self) -> Tuple[str, str]:
+        """
+        生成右键菜单的启动命令（优先无控制台）
         
-    def _get_script_path(self) -> str:
-        """获取执行脚本的路径"""
-        if getattr(sys, 'frozen', False):
-            # 打包后的exe文件
-            base_path = Path(sys.executable).parent
-        else:
-            # 源码运行
-            base_path = Path(__file__).parent.parent
+        Returns:
+            Tuple[str, str]: (命令字符串, 图标路径)
+        """
+        main_exe = self.base_dir / "main.exe"
+        main_py = self.base_dir / "main.py"
         
-        script_path = base_path / "scripts" / "run_ant.bat"
-        return str(script_path)
+        # 优先使用 PyInstaller 生成的 GUI 可执行文件（无控制台窗口）
+        if main_exe.exists():
+            return f'"{main_exe}" "%1"', str(main_exe)
+        
+        # 其次使用 pythonw.exe 运行源码，避免控制台弹窗
+        python_dir = Path(sys.executable).parent
+        pythonw = python_dir / "pythonw.exe"
+        if pythonw.exists() and main_py.exists():
+            return f'"{pythonw}" "{main_py}" "%1"', str(pythonw)
+        
+        # 兜底：使用当前解释器运行源码（可能出现控制台，但保证可用）
+        return f'"{sys.executable}" "{main_py}" "%1"', str(main_py)
     
     def is_admin(self) -> bool:
         """检查是否具有管理员权限"""
@@ -79,15 +95,20 @@ class RegistryManager:
             return False, "需要管理员权限来修改注册表"
         
         try:
-            script_path = self._get_script_path()
-            if not os.path.exists(script_path):
-                return False, f"执行脚本不存在: {script_path}"
+            launch_cmd, icon_path = self._get_launch_command()
+            
+            # 检查启动命令依赖的文件
+            if '"' in launch_cmd:
+                # 取出首个被引用的路径进行存在性校验
+                first_path = launch_cmd.split('"')[1]
+                if not os.path.exists(first_path):
+                    return False, f"启动目标不存在: {first_path}"
             
             # 为build.xml文件注册右键菜单
-            success_xml = self._register_for_xml_files(script_path)
+            success_xml = self._register_for_xml_files(launch_cmd, icon_path)
             
             # 为所有文件注册右键菜单（仅当文件名为build.xml时显示）
-            success_all = self._register_for_build_xml(script_path)
+            success_all = self._register_for_build_xml(launch_cmd, icon_path)
             
             if success_xml or success_all:
                 print("✅ 右键菜单注册成功")
@@ -100,7 +121,7 @@ class RegistryManager:
             print(f"❌ {error_msg}")
             return False, error_msg
     
-    def _register_for_xml_files(self, script_path: str) -> bool:
+    def _register_for_xml_files(self, launch_cmd: str, icon_path: str) -> bool:
         """为XML文件注册右键菜单 - 使用验证有效的方法"""
         try:
             # 创建菜单项主键 - 直接在XML类型下注册
@@ -109,15 +130,13 @@ class RegistryManager:
                 # 设置菜单文本
                 winreg.SetValueEx(key, "", 0, winreg.REG_SZ, self.menu_text)
                 # 设置图标（可选）
-                winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, script_path)
+                winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_path)
             
             # 创建命令子键
             command_path = f"{key_path}\\command"
             with winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, command_path) as key:
                 # 命令: 批处理脚本路径 + 传递文件路径参数
-                command = f'"{script_path}" "%1"'
-                # 使用SetValueEx确保正确设置默认值
-                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, command)
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, launch_cmd)
             
             print(f"✅ XML文件右键菜单注册完成: {key_path}")
             return True
@@ -126,7 +145,7 @@ class RegistryManager:
             print(f"❌ XML文件右键菜单注册失败: {e}")
             return False
     
-    def _register_for_build_xml(self, script_path: str) -> bool:
+    def _register_for_build_xml(self, launch_cmd: str, icon_path: str) -> bool:
         """为XML文件注册右键菜单 - 使用验证有效的通配符过滤方法"""
         try:
             # 使用验证有效的通配符过滤方法
@@ -137,14 +156,12 @@ class RegistryManager:
                 # 使用验证有效的通配符过滤器
                 winreg.SetValueEx(key, "AppliesTo", 0, winreg.REG_SZ, "*.xml")
                 # 添加图标
-                winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, script_path + ",0")
+                winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_path)
             
             # 创建命令子键
             command_path = f"{key_path}\\command"
             with winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, command_path) as key:
-                command = f'"{script_path}" "%1"'
-                # 使用SetValueEx确保正确设置默认值
-                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, command)
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, launch_cmd)
             
             print(f"✅ XML文件右键菜单注册完成: {key_path}")
             return True
@@ -240,6 +257,7 @@ class RegistryManager:
         """
         xml_exists = self._check_key_exists(f"{self.XML_FILE_KEY}\\{self.menu_key}")
         all_exists = self._check_key_exists(f"{self.BUILD_XML_KEY}\\{self.menu_key}")
+        launch_cmd, icon_path = self._get_launch_command()
         
         return {
             'xml_menu_exists': xml_exists,
@@ -247,7 +265,8 @@ class RegistryManager:
             'any_menu_exists': xml_exists or all_exists,
             'is_admin': self.is_admin(),
             'menu_text': self.menu_text,
-            'script_path': self._get_script_path()
+            'launch_command': launch_cmd,
+            'icon_path': icon_path
         }
 
 
@@ -257,4 +276,3 @@ if __name__ == "__main__":
     print("📋 注册表管理器测试:")
     print(f"管理员权限: {manager.is_admin()}")
     print(f"菜单状态: {manager.get_menu_status()}")
-    print(f"脚本路径: {manager._get_script_path()}") 

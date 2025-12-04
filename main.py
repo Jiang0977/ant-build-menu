@@ -474,6 +474,14 @@ def is_ant_build_file(file_path: str) -> bool:
         return False
 
 
+def is_suspicious_uri(target: str) -> bool:
+    """粗略检测异常协议，避免触发系统 URI 弹窗"""
+    lowered = target.lower()
+    if lowered.startswith("ms-gamingoverlay"):
+        return True
+    return "://" in target
+
+
 def main():
     """主函数"""
     if len(sys.argv) < 2:
@@ -482,6 +490,19 @@ def main():
         sys.exit(1)
     
     build_file = sys.argv[1]
+    
+    if is_suspicious_uri(build_file):
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "Ant Build Menu",
+                f"检测到异常的输入参数:\n{build_file}\n\n已阻止继续执行。"
+            )
+            root.destroy()
+        except Exception:
+            print(f"检测到异常的输入参数，已阻止执行: {build_file}")
+        sys.exit(1)
     
     # 验证文件
     if not Path(build_file).exists():
