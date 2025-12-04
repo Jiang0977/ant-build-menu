@@ -13,6 +13,7 @@ import threading
 import subprocess
 from pathlib import Path
 from typing import Optional
+import json
 
 # 导入项目模块
 from src.config import get_config
@@ -482,6 +483,28 @@ def is_suspicious_uri(target: str) -> bool:
     return "://" in target
 
 
+def log_launch(build_file: str, reason: str = "") -> None:
+    """记录启动信息，便于诊断异常参数"""
+    try:
+        build_path = Path(build_file)
+        log_dir = (build_path.parent if build_path.exists() else Path.cwd()) / "ant-build-logs"
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / "launch.log"
+        payload = {
+            "argv": sys.argv,
+            "cwd": str(Path.cwd()),
+            "build_file": build_file,
+            "exists": build_path.exists(),
+            "is_file": build_path.is_file() if build_path.exists() else False,
+            "suspicious": is_suspicious_uri(build_file),
+            "reason": reason,
+        }
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 def main():
     """主函数"""
     if len(sys.argv) < 2:
@@ -491,7 +514,12 @@ def main():
     
     build_file = sys.argv[1]
     
+    # 记录启动参数
+    log_launch(build_file, reason="start")
+    
+    # 拦截可疑 URI，避免触发系统协议弹窗
     if is_suspicious_uri(build_file):
+        log_launch(build_file, reason="blocked_suspicious_uri")
         try:
             root = tk.Tk()
             root.withdraw()
@@ -506,6 +534,7 @@ def main():
     
     # 验证文件
     if not Path(build_file).exists():
+        log_launch(build_file, reason="not_exists")
         print(f"错误: 文件不存在: {build_file}")
         sys.exit(1)
     

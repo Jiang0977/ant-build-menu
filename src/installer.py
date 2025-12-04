@@ -362,6 +362,13 @@ pause
             reg_success, reg_msg = self.registry_manager.register_context_menu()
             if not reg_success:
                 return False, f"注册表操作失败: {reg_msg}"
+
+            # 可选：抑制 ms-gamingoverlay 协议弹窗（注册空处理器，作用域仅当前用户）
+            stub_ok, stub_msg = self.registry_manager.register_ms_gamingoverlay_stub()
+            if stub_ok:
+                self.logger.info(stub_msg)
+            else:
+                self.logger.warning(stub_msg)
             
             # 保存配置
             self.config.save()
@@ -396,6 +403,13 @@ pause
                 success_msg.append("右键菜单删除成功")
             else:
                 self.logger.warning(f"右键菜单删除警告: {reg_msg}")
+
+            # 删除 ms-gamingoverlay 空处理器
+            stub_ok, stub_msg = self.registry_manager.unregister_ms_gamingoverlay_stub()
+            if stub_ok:
+                success_msg.append("ms-gamingoverlay 协议占位已删除")
+            else:
+                self.logger.warning(stub_msg)
             
             self.logger.info("✅ Ant Build Menu 卸载完成")
             

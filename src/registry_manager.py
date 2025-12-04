@@ -269,6 +269,50 @@ class RegistryManager:
             'icon_path': icon_path
         }
 
+    # ---------- 可选：抑制 ms-gamingoverlay 协议弹窗 ----------
+    def register_ms_gamingoverlay_stub(self) -> Tuple[bool, str]:
+        """
+        在当前用户注册表中注册一个空的 ms-gamingoverlay 协议处理器，避免系统弹窗。
+        使用 HKCU，无需管理员；会影响 Xbox Game Bar 的协议调用。
+        """
+        try:
+            key_path = r"Software\\Classes\\ms-gamingoverlay"
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "URL:ms-gamingoverlay Protocol")
+                winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
+            
+            command_path = key_path + r"\\shell\\open\\command"
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, command_path) as key:
+                # 使用简单的退出命令作为占位，避免调用任何外部程序
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, r'cmd.exe /c exit 0')
+            
+            return True, "ms-gamingoverlay 协议已注册为空处理器"
+        except Exception as e:
+            return False, f"注册 ms-gamingoverlay 协议失败: {e}"
+
+    def unregister_ms_gamingoverlay_stub(self) -> Tuple[bool, str]:
+        """删除当前用户的 ms-gamingoverlay 协议占位"""
+        try:
+            base_path = r"Software\\Classes\\ms-gamingoverlay"
+            # 递归删除子键
+            def delete_tree(root, path):
+                with winreg.OpenKey(root, path) as h:
+                    try:
+                        i = 0
+                        while True:
+                            sub = winreg.EnumKey(h, i)
+                            delete_tree(root, path + "\\" + sub)
+                            i += 1
+                    except OSError:
+                        pass
+                winreg.DeleteKey(root, path)
+            delete_tree(winreg.HKEY_CURRENT_USER, base_path)
+            return True, "ms-gamingoverlay 协议占位已删除"
+        except FileNotFoundError:
+            return True, "未找到 ms-gamingoverlay 协议占位"
+        except Exception as e:
+            return False, f"删除 ms-gamingoverlay 协议占位失败: {e}"
+
 
 if __name__ == "__main__":
     # 测试注册表管理器
