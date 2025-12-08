@@ -161,6 +161,8 @@ python scripts/publish_gitee_release.py        # 默认 target master
 # 或指定分支/提交
 python scripts/publish_gitee_release.py --target master
 
+ python scripts/publish_gitee_release.py -v V1.0.5 -t your_gitee_token
+
 ```
 
 ![输入图片说明](examples/image.png)
