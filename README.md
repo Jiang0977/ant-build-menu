@@ -157,8 +157,10 @@ pyinstaller main.spec         # 生成exe文件
 ### 发布到 Gitee
 ```cmd
 # 使用 PowerShell 运行发布脚本
-cd scripts
-.\publish_gitee_release.ps1 -Version "v1.0.4" -Token "your_gitee_token"
+python scripts/publish_gitee_release.py        # 默认 target master
+# 或指定分支/提交
+python scripts/publish_gitee_release.py --target master
+
 ```
 
 ![输入图片说明](examples/image.png)

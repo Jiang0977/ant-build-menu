@@ -276,17 +276,7 @@ class RegistryManager:
         使用 HKCU，无需管理员；会影响 Xbox Game Bar 的协议调用。
         """
         try:
-            key_path = r"Software\\Classes\\ms-gamingoverlay"
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
-                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "URL:ms-gamingoverlay Protocol")
-                winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
-            
-            command_path = key_path + r"\\shell\\open\\command"
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, command_path) as key:
-                # 使用简单的退出命令作为占位，避免调用任何外部程序
-                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, r'cmd.exe /c exit 0')
-            
-            return True, "ms-gamingoverlay 协议已注册为空处理器"
+            return self.ensure_ms_gamingoverlay_stub()
         except Exception as e:
             return False, f"注册 ms-gamingoverlay 协议失败: {e}"
 
@@ -312,6 +302,40 @@ class RegistryManager:
             return True, "未找到 ms-gamingoverlay 协议占位"
         except Exception as e:
             return False, f"删除 ms-gamingoverlay 协议占位失败: {e}"
+
+    def ensure_ms_gamingoverlay_stub(self) -> Tuple[bool, str]:
+        """
+        确保当前用户下存在 ms-gamingoverlay 协议的空处理器。
+        目标：消除“获取打开此链接的应用”弹窗；无需管理员权限。
+        """
+        try:
+            base_path = r"Software\\Classes\\ms-gamingoverlay"
+            command_path = base_path + r"\\shell\\open\\command"
+            desired_cmd = r'cmd.exe /c exit 0 "%1"'
+
+            # 先检测是否已存在且匹配
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, command_path) as key:
+                    current_value, _ = winreg.QueryValueEx(key, "")
+                    if current_value.strip().lower() == desired_cmd.lower():
+                        return True, "ms-gamingoverlay 协议占位已存在"
+            except FileNotFoundError:
+                pass
+
+            # 创建/更新协议键
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base_path) as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "URL:ms-gamingoverlay Protocol")
+                winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
+                # 防止出现在“打开方式”列表
+                winreg.SetValueEx(key, "NoOpenWith", 0, winreg.REG_SZ, "")
+                winreg.SetValueEx(key, "NoStaticDefaultVerb", 0, winreg.REG_SZ, "")
+
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, command_path) as key:
+                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, desired_cmd)
+
+            return True, "ms-gamingoverlay 协议占位已写入当前用户"
+        except Exception as e:
+            return False, f"确保 ms-gamingoverlay 协议占位失败: {e}"
 
 
 if __name__ == "__main__":

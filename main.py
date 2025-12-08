@@ -505,6 +505,22 @@ def log_launch(build_file: str, reason: str = "") -> None:
         pass
 
 
+def ensure_ms_gamingoverlay_stub_for_current_user(build_file: str) -> None:
+    """
+    在当前用户下自愈 ms-gamingoverlay 协议占位，避免弹出“选择应用”提示。
+    失败仅记录日志，不阻断主流程。
+    """
+    try:
+        from src.registry_manager import RegistryManager
+
+        manager = RegistryManager()
+        ok, msg = manager.ensure_ms_gamingoverlay_stub()
+        if not ok:
+            log_launch(build_file, reason=f"ensure_ms_gamingoverlay_stub_failed:{msg}")
+    except Exception as e:
+        log_launch(build_file, reason=f"ensure_ms_gamingoverlay_stub_failed:{e}")
+
+
 def main():
     """主函数"""
     if len(sys.argv) < 2:
@@ -513,6 +529,9 @@ def main():
         sys.exit(1)
     
     build_file = sys.argv[1]
+
+    # 确保当前用户下的 ms-gamingoverlay 协议占位存在，消除系统弹窗
+    ensure_ms_gamingoverlay_stub_for_current_user(build_file)
     
     # 记录启动参数
     log_launch(build_file, reason="start")
