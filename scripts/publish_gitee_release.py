@@ -53,10 +53,15 @@ def get_dist_files() -> List[Path]:
     dist_dir = Path(__file__).resolve().parent.parent / "dist"
     if not dist_dir.exists():
         raise FileNotFoundError(f"dist 目录不存在: {dist_dir}")
-    files = [p for p in dist_dir.rglob("*") if p.is_file()]
-    if not files:
-        raise FileNotFoundError(f"dist 目录没有可上传的文件: {dist_dir}")
-    return files
+    target = dist_dir / "windows-dist.zip"
+    if target.exists():
+        return [target]
+    matches = list(dist_dir.rglob("windows-dist.zip"))
+    if len(matches) == 1:
+        return [matches[0]]
+    if len(matches) > 1:
+        raise FileExistsError(f"发现多个 windows-dist.zip，请仅保留一个: {matches}")
+    raise FileNotFoundError(f"未找到 dist/windows-dist.zip，当前 dist 目录: {dist_dir}")
 
 
 class GiteeClient:
